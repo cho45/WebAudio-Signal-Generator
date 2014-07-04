@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html ng-app="App">
+	<head>
+		<title>Browser Signal Generator (WebAudio)</title>
+		<meta charset="utf-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+
+		<script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+		<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css">
+		<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-theme.min.css">
+		<script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+		<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.18/angular.min.js"></script>
+		<script src="sg.js"></script>
+
+		<link rev="made" href="mailto:cho45@lowreal.net"/>
+		<link rel="shortcut icon" href="/favicon.ico" type="image/x-icon"/>
+
+		<!--[if lt IE 9]>
+		<script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+		<![endif]-->
+
+		<style>
+		</style>
+	</head>
+	<body ng-controller="MainCtrl">
+		<div class="navbar" role="navigation">
+			<div class="container">
+				<div class="navbar-header">
+					<div class="navbar-toggle" style="height: 34px; padding: 0">
+						<button class="btn btn-success btn-sm" style="" ng-click="playing ? stop() : start()">{{ playing ? "Stop" : "Start" }}</button>
+					</div>
+					<a class="navbar-brand" href="#">Signal Generator</a>
+				</div>
+
+				<div class="collapse navbar-collapse navbar-buttons navbar-right" style="padding: 0">
+					<label class="checkbox-inline" style="margin: 0 10px">
+						<input type="checkbox" ng-model="fftEnabled" /> FFT
+					</label>
+					<button class="btn btn-success navbar-btn" ng-click="playing ? stop() : start()">{{ playing ? "Stop" : "Start" }}</button>
+				</div>
+			</div>
+		</div>
+
+		<div class="container">
+
+			<div fft="fft" style="text-align: center; margin: 10px 0; padding: 10px; border: 1px solid #ccc;" ng-show="fftEnabled">
+			</div>
+
+			<ul class="nav nav-tabs">
+				<li class="active"><a href="#tone" data-toggle="tab">
+					Signals
+					<button type="button" class="btn btn-primary btn-sm" ng-click="append()">Add</button>
+				</a></li>
+				<!-- li><a href="#sweep" data-toggle="tab">Sweep</a></li -->
+			</ul>
+
+			<div class="tab-content">
+				<div class="tab-pane active" id="tone" style="padding-top: 20px">
+					<div class="panel panel-default" ng-repeat="osc in oscillators">
+						<div class="panel-heading">
+							<div class="btn-group">
+								<button class="btn btn-default btn-sm dropdown-toggle" type="button" data-toggle="dropdown">
+									{{ osc.type | oscillatorType }} <span class="caret"></span>
+								</button>
+								<ul class="dropdown-menu">
+									<li><a href="javascript:void(0)" ng-click="osc.type = 'sine'">Sine</a></li>
+									<li><a href="javascript:void(0)" ng-click="osc.type = 'square'">Square</a></li>
+									<li><a href="javascript:void(0)" ng-click="osc.type = 'sawtooth'">Sawtooth</a></li>
+									<li><a href="javascript:void(0)" ng-click="osc.type = 'triangle'">Triangle</a></li>
+									<li><a href="javascript:void(0)" ng-click="osc.type = 'whitenoise'">White Noise</a></li>
+									<li><a href="javascript:void(0)" ng-click="osc.type = 'pinknoise'">Pink Noise</a></li>
+									<li><a href="javascript:void(0)" ng-click="osc.type = 'browniannoise'">Brownian Noise</a></li>
+								</ul>
+							</div>
+
+							<button class="close" ng-click="remove(osc)">&times;</button>
+						</div>
+						<div class="panel-body">
+							<div ng-show="!osc.type.match('noise')">
+								<label>Frequency</label>
+								<button class="btn btn-default btn-xs" ng-click="osc.frequency = osc.frequency + 100">+100</button>
+								<button class="btn btn-default btn-xs" ng-click="osc.frequency = osc.frequency - 100">-100</button>
+								<button class="btn btn-default btn-xs" ng-click="osc.frequency = osc.frequency * 2">+octave</button>
+								<button class="btn btn-default btn-xs" ng-click="osc.frequency = osc.frequency / 2">-octave</button>
+								<div class="input-group">
+									<input type="number" min="1" max="200000" step="1" name="frequency" class="form-control" value="1000" ng-model="osc.frequency"/>
+									<span class="input-group-addon">Hz</span>
+								</div>
+							</div>
+							<label>Gain</label>
+							<div class="input-group">
+								<input type="number" min="0" max="1" step="0.01" name="gain" class="form-control" value="100" ng-model="osc.gain"/>
+								<span class="input-group-addon">%</span>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="tab-pane" id="sweep">
+					sweep
+				</div>
+			</div>
+
+		</div>
+	</body>
+</html>
