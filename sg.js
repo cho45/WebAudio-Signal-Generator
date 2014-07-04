@@ -247,7 +247,7 @@ App.controller('MainCtrl', function ($scope, $timeout) {
 	console.log('Main', $scope.$id);
 
 	$timeout(function () {
-		$scope.fft.init(signalGenerator.context, signalGenerator.merger);
+		$scope.fft.init(signalGenerator.context, signalGenerator.gain);
 		$scope.$watch('fftEnabled', function (newValue) {
 			if (newValue) {
 				$scope.fft.start();

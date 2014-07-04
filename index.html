@@ -78,10 +78,14 @@
 						<div class="panel-body">
 							<div ng-show="!osc.type.match('noise')">
 								<label>Frequency</label>
-								<button class="btn btn-default btn-xs" ng-click="osc.frequency = osc.frequency + 100">+100</button>
-								<button class="btn btn-default btn-xs" ng-click="osc.frequency = osc.frequency - 100">-100</button>
-								<button class="btn btn-default btn-xs" ng-click="osc.frequency = osc.frequency * 2">+octave</button>
-								<button class="btn btn-default btn-xs" ng-click="osc.frequency = osc.frequency / 2">-octave</button>
+								<div class="btn-group">
+									<button class="btn btn-default btn-xs" ng-click="osc.frequency = osc.frequency - 100">-100</button>
+									<button class="btn btn-default btn-xs" ng-click="osc.frequency = osc.frequency + 100">+100</button>
+								</div>
+								<div class="btn-group">
+									<button class="btn btn-default btn-xs" ng-click="osc.frequency = osc.frequency / 2">-octave</button>
+									<button class="btn btn-default btn-xs" ng-click="osc.frequency = osc.frequency * 2">+octave</button>
+								</div>
 								<div class="input-group">
 									<input type="number" min="1" max="200000" step="1" name="frequency" class="form-control" value="1000" ng-model="osc.frequency"/>
 									<span class="input-group-addon">Hz</span>
