@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Signal Generator</title>
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f0f2f5;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding-top: 2rem;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: auto;
+    }
+
+    .card {
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+      border-radius: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .custom-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    canvas {
+      width: 100%;
+      height: 150px;
+      display: block;
+      background: #fff;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="custom-header">
+      <h2>🎛Signal Generator</h2>
+      <button id="startBtn" class="btn btn-success mb-3">Start</button>
+      <button id="stopBtn" class="btn btn-danger mb-3">Stop</button>
+      <div class="row justify-content-center">
+        <div class="col-md-6">
+          <label for="freqSlider" class="form-label">Frequency: <span id="freqVal">440</span> Hz</label>
+          <input type="range" class="form-range" id="freqSlider" min="20" max="2000" value="440">
+
+          <label for="gainSlider" class="form-label mt-3">Gain: <span id="gainVal">0.5</span></label>
+          <input type="range" class="form-range" id="gainSlider" min="0" max="1" step="0.01" value="0.5">
+        </div>
+      </div>
+    </div>
+
+    <canvas id="visualizer"></canvas>
+  </div>
+
+  <script>
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const canvas = document.getElementById('visualizer');
+    const ctxCanvas = canvas.getContext('2d');
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+
+    const freqSlider = document.getElementById('freqSlider');
+    const gainSlider = document.getElementById('gainSlider');
+    const freqVal = document.getElementById('freqVal');
+    const gainVal = document.getElementById('gainVal');
+
+    let audioCtx, analyser, dataArray, bufferLength, oscillator, gainNode, animationId;
+
+    function initAudio() {
+      audioCtx = new AudioContext();
+      analyser = audioCtx.createAnalyser();
+      gainNode = audioCtx.createGain();
+      oscillator = audioCtx.createOscillator();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(freqSlider.value, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(gainSlider.value, audioCtx.currentTime);
+
+      analyser.fftSize = 2048;
+      bufferLength = analyser.frequencyBinCount;
+      dataArray = new Uint8Array(bufferLength);
+
+      oscillator.connect(gainNode).connect(analyser).connect(audioCtx.destination);
+    }
+
+    function drawVisualizer() {
+      animationId = requestAnimationFrame(drawVisualizer);
+      analyser.getByteTimeDomainData(dataArray);
+
+      ctxCanvas.fillStyle = '#fff';
+      ctxCanvas.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctxCanvas.lineWidth = 2;
+      ctxCanvas.strokeStyle = '#28a745';
+
+      ctxCanvas.beginPath();
+      let sliceWidth = canvas.width / bufferLength;
+      let x = 0;
+
+      for (let i = 0; i < bufferLength; i++) {
+        let v = dataArray[i] / 128.0;
+        let y = v * canvas.height / 2;
+
+        if (i === 0) ctxCanvas.moveTo(x, y);
+        else ctxCanvas.lineTo(x, y);
+
+        x += sliceWidth;
+      }
+
+      ctxCanvas.lineTo(canvas.width, canvas.height / 2);
+      ctxCanvas.stroke();
+    }
+
+    document.getElementById('startBtn').addEventListener('click', () => {
+      if (!audioCtx || audioCtx.state === 'closed') {
+        initAudio();
+        oscillator.start();
+        drawVisualizer();
+      }
+    });
+
+    document.getElementById('stopBtn').addEventListener('click', () => {
+      if (oscillator) oscillator.stop();
+      cancelAnimationFrame(animationId);
+      audioCtx.close();
+      audioCtx = null;
+    });
+
+    freqSlider.addEventListener('input', () => {
+      freqVal.textContent = freqSlider.value;
+      if (oscillator && audioCtx) {
+        oscillator.frequency.setValueAtTime(freqSlider.value, audioCtx.currentTime);
+      }
+    });
+
+    gainSlider.addEventListener('input', () => {
+      gainVal.textContent = gainSlider.value;
+      if (gainNode && audioCtx) {
+        gainNode.gain.setValueAtTime(gainSlider.value, audioCtx.currentTime);
+      }
+    });
+  </script>
+</body>
+</html>
