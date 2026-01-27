@@ -168,6 +168,29 @@
 		.freq-btn:hover { background: #ddd; }
 
 		[v-cloak] { display: none; }
+		footer {
+			text-align: center;
+			padding: 2rem 0;
+			margin-top: 2rem;
+			border-top: 1px solid #eee;
+		}
+
+		.footer-links {
+			display: flex;
+			flex-direction: column;
+			gap: 0.5rem;
+			align-items: center;
+		}
+
+		.footer-link {
+			color: #666;
+			text-decoration: underline;
+			font-size: 0.9rem;
+		}
+
+		.footer-link:hover {
+			color: var(--primary-color);
+		}
 	</style>
 </head>
 <body>
@@ -239,6 +262,13 @@
 				</div>
 			</div>
 		</main>
+
+		<footer>
+			<div class="footer-links">
+				<a href="https://github.com/cho45/WebAudio-Signal-Generator" target="_blank" class="footer-link">GitHub: WebAudio-Signal-Generator</a>
+				<a href="https://cho45.stfuawsc.com/pseudo-audio-signal/" class="footer-link">Related product: ITU-T G.227 Pseudo-Speech Signal Generator</a>
+			</div>
+		</footer>
 	</div>
 
 	<script type="module" src="sg.js"></script>
