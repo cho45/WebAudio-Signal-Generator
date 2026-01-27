@@ -16,7 +16,7 @@
 		<link rel="shortcut icon" href="/favicon.ico" type="image/x-icon"/>
 
 		<!--[if lt IE 9]>
-		<script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+		<script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
 		<![endif]-->
 
 		<style>
@@ -81,6 +81,10 @@
 								<div class="btn-group">
 									<button class="btn btn-default btn-xs" ng-click="osc.frequency = osc.frequency - 100">-100</button>
 									<button class="btn btn-default btn-xs" ng-click="osc.frequency = osc.frequency + 100">+100</button>
+								</div>
+								<div class="btn-group">
+									<button class="btn btn-default btn-xs" ng-click="osc.frequency = osc.frequency / 1.0594630943592953">-semitone</button>
+									<button class="btn btn-default btn-xs" ng-click="osc.frequency = osc.frequency * 1.0594630943592953">+semitone</button>
 								</div>
 								<div class="btn-group">
 									<button class="btn btn-default btn-xs" ng-click="osc.frequency = osc.frequency / 2">-octave</button>

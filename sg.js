@@ -22,44 +22,57 @@ window.AudioContext = (
 SignalGenerator = function () { this.init.apply(this, arguments) };
 SignalGenerator.prototype = {
 	init : function () {
+		console.log('init');
 		var self = this;
-		self.context = new AudioContext();
-		self.nodes = [];
 		self.configs = [];
-		self.gain = self.context.createGain();
-		self.gain.gain.value = 0;
-		self.gain.connect(self.context.destination);
 	},
 
 	append : function (config) {
 		var self = this;
 		if (self._index(config) !== null) throw "already appended config";
-
-		var node = { };
-
-		self._set(node, config);
-
 		self.configs.push(config);
-		self.nodes.push(node);
+		if (self.nodes) {
+			var node = {};
+			self._set(node, config);
+			self.nodes.push(node);
+		}
 	},
 
 	update : function (config) {
 		var self = this;
-		var node = self.nodes[self._index(config)];
-		self._set(node, config);
+		if (self.nodes) {
+			var node = self.nodes[self._index(config)];
+			self._set(node, config);
+		}
 	},
 
 	remove : function (config) {
 		var self = this;
 		var index = self._index(config);
-		var node = self.nodes[index];
-		node.osc.disconnect();
-		self.nodes.splice(index, 1);
 		self.configs.splice(index, 1);
+		if (self.nodes) {
+			var node = self.nodes[index];
+			node.osc.disconnect();
+			self.nodes.splice(index, 1);
+		}
 	},
 
 	start : function () {
 		var self = this;
+		if (!self.context) {
+			self.context = new AudioContext();
+			self.nodes = [];
+			self.gain = self.context.createGain();
+			self.gain.gain.value = 0;
+			self.gain.connect(self.context.destination);
+			for (let config of self.configs) {
+				const node = {};
+				self._set(node, config);
+				self.nodes.push(node);
+			}
+		}
+
+
 		self.playing = true;
 		self.gain.gain.value = 1;
 	},
@@ -197,7 +210,8 @@ App.directive('fft', function () {
 		controller : function ($scope, $element, $attrs) {
 			console.log('controller');
 			$scope.fft = {
-				init : function (context, node) {
+				start : function (context, node) {
+					var self = this;
 					this.context = context;
 					this.node = node;
 					this.canvas = $element.find('canvas')[0];
@@ -218,10 +232,6 @@ App.directive('fft', function () {
 							ctx.fillRect(i, 0, 1, canvas.height * x);
 						}
 					};
-				},
-
-				start : function () {
-					var self = this;
 					if (self.running) return;
 					self.running = true;
 					requestAnimationFrame(function () {
@@ -246,17 +256,6 @@ App.controller('MainCtrl', function ($scope, $timeout) {
 	$scope.playing = false;
 	console.log('Main', $scope.$id);
 
-	$timeout(function () {
-		$scope.fft.init(signalGenerator.context, signalGenerator.gain);
-		$scope.$watch('fftEnabled', function (newValue) {
-			if (newValue) {
-				$scope.fft.start();
-			} else {
-				$scope.fft.stop();
-			}
-		});
-	}, 10);
-
 	$scope.$watch('oscillators', function (newValue, oldValue) {
 		console.log(newValue);
 		for (var i = 0, it; (it = newValue[i]); i++) {
@@ -267,7 +266,7 @@ App.controller('MainCtrl', function ($scope, $timeout) {
 	$scope.append = function () {
 		var config = {
 			type : "sine",
-			frequency : 600,
+			frequency : 440,
 			gain : 0.1
 		};
 		$scope.oscillators.push(config);
@@ -293,6 +292,17 @@ App.controller('MainCtrl', function ($scope, $timeout) {
 		signalGenerator.stop();
 		$scope.playing = false;
 	};
+
+	setTimeout(function () {
+		$scope.$watch('fftEnabled', function (newValue) {
+			if (newValue) {
+				$scope.fft.start(signalGenerator.context, signalGenerator.gain);
+			} else {
+				$scope.fft.stop();
+			}
+		});
+	}, 10);
+
 
 	$scope.append();
 });
