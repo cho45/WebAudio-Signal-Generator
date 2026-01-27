@@ -22,23 +22,6 @@
 			padding-bottom: 2rem;
 		}
 
-		header {
-			background-color: #fff;
-			box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-			position: sticky;
-			top: 0;
-			z-index: 100;
-		}
-
-		.header-inner {
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-			padding: 0.5rem 1rem;
-			margin: 0 auto;
-			max-width: 800px;
-		}
-
 		h1 {
 			margin: 0;
 			font-size: 1.2rem;
@@ -48,12 +31,6 @@
 			max-width: 800px;
 			margin: 2rem auto;
 			padding: 0 1rem;
-		}
-
-		.controls {
-			display: flex;
-			gap: 1rem;
-			align-items: center;
 		}
 
 		.btn {
@@ -191,6 +168,55 @@
 		.footer-link:hover {
 			color: var(--primary-color);
 		}
+
+		header {
+			background: #fff;
+			border-bottom: 1px solid #eee;
+			padding: 1rem 0;
+			margin-bottom: 2rem;
+			position: sticky;
+			top: 0;
+			z-index: 100;
+		}
+
+		.header-inner {
+			max-width: 800px;
+			margin: 0 auto;
+			padding: 0 1rem;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			flex-wrap: wrap;
+			gap: 1rem;
+		}
+
+		.presets {
+			display: flex;
+			gap: 0.5rem;
+			font-size: 0.8rem;
+			align-items: center;
+		}
+
+		.presets a {
+			color: #666;
+			text-decoration: none;
+			padding: 0.2rem 0.5rem;
+			border: 1px solid #eee;
+			border-radius: 4px;
+			background: #f9f9f9;
+		}
+
+		.presets a:hover {
+			background: #eee;
+			color: var(--primary-color);
+		}
+
+		.controls {
+			display: flex;
+			align-items: center;
+			gap: 1.5rem;
+			flex-wrap: wrap;
+		}
 	</style>
 </head>
 <body>
@@ -199,6 +225,13 @@
 			<div class="header-inner">
 				<h1>Signal Generator</h1>
 				<div class="controls">
+					<div class="presets">
+						<span>Presets:</span>
+						<a href="?osc=whitenoise-0-0.1">White</a>
+						<a href="?osc=pinknoise-0-0.1">Pink</a>
+						<a href="?osc=browniannoise-0-0.1">Brown</a>
+						<a href="?osc=sine-261.63-0.05&osc=sine-329.63-0.05&osc=sine-392.00-0.05&osc=sine-493.88-0.05">CM7</a>
+					</div>
 					<label>
 						<input type="checkbox" v-model="fftEnabled"> FFT
 					</label>

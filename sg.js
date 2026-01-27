@@ -214,12 +214,46 @@ const app = createApp({
 			playing.value = false;
 		};
 
-		watch(oscillators, (newVal) => {
-			newVal.forEach(osc => signalGenerator.update(osc));
+		const saveStateToURL = () => {
+			const params = new URLSearchParams();
+			params.set('fft', fftEnabled.value ? '1' : '0');
+			oscillators.forEach(osc => {
+				params.append('osc', `${osc.type}-${osc.frequency}-${osc.gain}`);
+			});
+			const queryString = params.toString();
+			const newURL = `${window.location.pathname}${queryString ? '?' + queryString : ''}`;
+			window.history.replaceState(null, '', newURL);
+		};
+
+		const loadStateFromURL = () => {
+			const params = new URLSearchParams(window.location.search);
+			if (params.has('fft')) {
+				fftEnabled.value = params.get('fft') !== '0';
+			}
+			const oscParams = params.getAll('osc');
+			if (oscParams.length > 0) {
+				oscParams.forEach(p => {
+					const [type, frequency, gain] = p.split('-');
+					const config = reactive({
+						type: type || 'sine',
+						frequency: parseFloat(frequency) || 440,
+						gain: parseFloat(gain) || 0.1
+					});
+					oscillators.push(config);
+					signalGenerator.append(config);
+				});
+			} else {
+				append();
+			}
+		};
+
+		watch([oscillators, fftEnabled], () => {
+			oscillators.forEach(osc => signalGenerator.update(osc));
+			saveStateToURL();
 		}, { deep: true });
 
 		onMounted(() => {
-			append();
+			loadStateFromURL();
 		});
 
 		return {
