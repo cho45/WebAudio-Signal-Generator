@@ -1,6 +1,5 @@
 import { NoiseNode } from './noise-node.js';
-
-const App = angular.module('App', []);
+import { createApp, ref, reactive, watch, onMounted, onUnmounted, nextTick } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
 
 class SignalGenerator {
 	constructor() {
@@ -111,119 +110,130 @@ class SignalGenerator {
 	}
 }
 
-App.filter('oscillatorType', function () {
-	return function (v) {
-		if (!v) return '';
-		return v.substring(0, 1).toUpperCase() + v.substring(1);
-	};
-});
+const Visualizer = {
+	props: ['context', 'source', 'enabled'],
+	setup(props) {
+		const canvasRef = ref(null);
+		let analyser = null;
+		let animationId = null;
 
-App.directive('fft', function () {
-	return {
-		scope: {
-			"fft": "="
-		},
-		controller: function ($scope, $element) {
-			$scope.fft = {
-				start: function (context, node) {
-					this.context = context;
-					this.node = node;
-					this.canvas = $element.find('canvas')[0];
-					this.analyser = context.createAnalyser();
-					this.analyser.fftSize = 2048;
-					this.node.connect(this.analyser);
+		const draw = () => {
+			if (!props.enabled || !analyser || !canvasRef.value) return;
+			const canvas = canvasRef.value;
+			const ctx = canvas.getContext('2d');
+			const data = new Float32Array(analyser.frequencyBinCount);
+			
+			// 正しいレンジ計算: maxDecibels(-30) - minDecibels(-100) = 70
+			const min = analyser.minDecibels;
+			const max = analyser.maxDecibels;
+			const range = max - min;
 
-					const ctx = this.canvas.getContext('2d');
-					const analyser = this.analyser;
-					const data = new Float32Array(analyser.frequencyBinCount);
-					const range = analyser.minDecibels - analyser.maxDecibels;
-
-					const draw = () => {
-						if (!this.running) return;
-						analyser.getFloatFrequencyData(data);
-						ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-						ctx.fillStyle = "#000000";
-						for (let i = 0, len = data.length; i < len; i++) {
-							const x = (data[i] - analyser.maxDecibels) / range;
-							ctx.fillRect(i, 0, 1, this.canvas.height * x);
-						}
-						requestAnimationFrame(draw);
-					};
-
-					if (this.running) return;
-					this.running = true;
-					requestAnimationFrame(draw);
-				},
-
-				stop: function () {
-					this.running = false;
-					if (this.node && this.analyser) {
-						this.node.disconnect(this.analyser);
-					}
-				}
-			};
-		},
-		template: '<canvas id="canvas" width="1024" height="200" style="max-width: 100%; border: 1px solid #000;"></canvas>'
-	};
-});
-
-App.controller('MainCtrl', function ($scope, $timeout) {
-	const signalGenerator = new SignalGenerator();
-	$scope.oscillators = [];
-	$scope.playing = false;
-
-	$scope.$watch('oscillators', function (newValue) {
-		for (let i = 0; i < newValue.length; i++) {
-			signalGenerator.update(newValue[i]);
-		}
-	}, true);
-
-	$scope.append = function () {
-		const config = {
-			type: "sine",
-			frequency: 440,
-			gain: 0.1
+			analyser.getFloatFrequencyData(data);
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			ctx.fillStyle = "#42b983";
+			
+			const barWidth = canvas.width / data.length;
+			for (let i = 0, len = data.length; i < len; i++) {
+				// デシベル値を 0.0 ~ 1.0 に正規化 (loud = 1.0, quiet = 0.0)
+				const val = (data[i] - min) / range;
+				const h = canvas.height * Math.max(0, val);
+				// 下から上に向かって描画
+				ctx.fillRect(i * barWidth, canvas.height - h, barWidth, h);
+			}
+			animationId = requestAnimationFrame(draw);
 		};
-		$scope.oscillators.push(config);
-		signalGenerator.append(config);
-	};
 
-	$scope.remove = function (osc) {
-		const index = $scope.oscillators.indexOf(osc);
-		if (index !== -1) {
-			$scope.oscillators.splice(index, 1);
-			signalGenerator.remove(osc);
-		}
-	};
-
-	$scope.start = async function () {
-		await signalGenerator.start();
-		$scope.$apply(() => {
-			$scope.playing = true;
-			if ($scope.fftEnabled) {
-				$scope.fft.start(signalGenerator.context, signalGenerator.gain);
+		const init = async () => {
+			await nextTick();
+			if (props.enabled && props.context && props.source && canvasRef.value) {
+				analyser = props.context.createAnalyser();
+				analyser.fftSize = 2048;
+				props.source.connect(analyser);
+				draw();
 			}
-		});
-	};
+		};
 
-	$scope.stop = function () {
-		signalGenerator.stop();
-		$scope.playing = false;
-	};
-
-	$timeout(() => {
-		$scope.$watch('fftEnabled', function (newValue) {
-			if (newValue) {
-				if (signalGenerator.context) {
-					$scope.fft.start(signalGenerator.context, signalGenerator.gain);
-				}
-			} else {
-				if ($scope.fft) {
-					$scope.fft.stop();
-				}
+		const cleanup = () => {
+			if (animationId) cancelAnimationFrame(animationId);
+			if (props.source && analyser) {
+				try { props.source.disconnect(analyser); } catch(e) {}
 			}
-		});
-	}, 100);
+			analyser = null;
+		};
 
-	$scope.append();
+		onMounted(() => init());
+		onUnmounted(() => cleanup());
+
+		watch(() => [props.enabled, props.context, props.source], () => {
+			cleanup();
+			init();
+		});
+
+		return { canvasRef };
+	},
+	template: `<canvas ref="canvasRef" width="1024" height="200" class="visualizer-canvas"></canvas>`
+};
+
+const app = createApp({
+	components: { Visualizer },
+	setup() {
+		const signalGenerator = new SignalGenerator();
+		const oscillators = reactive([]);
+		const playing = ref(false);
+		const fftEnabled = ref(false);
+		const context = ref(null);
+		const gainNode = ref(null);
+
+		const append = () => {
+			const config = reactive({
+				type: "sine",
+				frequency: 440,
+				gain: 0.1
+			});
+			oscillators.push(config);
+			signalGenerator.append(config);
+		};
+
+		const remove = (osc) => {
+			const index = oscillators.indexOf(osc);
+			if (index !== -1) {
+				oscillators.splice(index, 1);
+				signalGenerator.remove(osc);
+			}
+		};
+
+		const start = async () => {
+			await signalGenerator.start();
+			playing.value = true;
+			context.value = signalGenerator.context;
+			gainNode.value = signalGenerator.gain;
+		};
+
+		const stop = () => {
+			signalGenerator.stop();
+			playing.value = false;
+		};
+
+		watch(oscillators, (newVal) => {
+			newVal.forEach(osc => signalGenerator.update(osc));
+		}, { deep: true });
+
+		onMounted(() => {
+			append();
+		});
+
+		return {
+			oscillators,
+			playing,
+			fftEnabled,
+			context,
+			gainNode,
+			append,
+			remove,
+			start,
+			stop
+		};
+	}
 });
+
+app.mount('#app');
