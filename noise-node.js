@@ -27,25 +27,36 @@ export class NoiseNode extends AudioWorkletNode {
 					this.type = opts.processorOptions.type;
 					this.states = [];
 
+					const createGaussianNoise = () => {
+						let spare = null;
+						return () => {
+							if (spare !== null) {
+								const tmp = spare;
+								spare = null;
+								return tmp;
+							}
+							const a = 1.0 - Math.random(), b = Math.random();
+							const common = Math.sqrt(-2 * Math.log(a));
+							spare = common * Math.cos(2 * Math.PI * b);
+							return common * Math.sin(2 * Math.PI * b);
+						};
+					};
+
 					const createWhiteNoise = () => {
+						const gaussian = createGaussianNoise();
 						return (chData) => {
-							for (let i = 0; i < chData.length; i += 2) {
-								const a = 1.0 - Math.random(), b = Math.random();
-								const common = Math.sqrt(-2 * Math.log(a));
-								const x = common * Math.sin(2 * Math.PI * b);
-								const y = common * Math.cos(2 * Math.PI * b);
-								chData[i + 0] = x;
-								if (i + 1 < chData.length) chData[i + 1] = y;
+							for (let i = 0; i < chData.length; i++) {
+								chData[i] = gaussian();
 							}
 						};
 					};
 
 					const createPinkNoise = () => {
+						const gaussian = createGaussianNoise();
 						let x0 = 0, x1 = 0, x2 = 0, x3 = 0, x4 = 0, x5 = 0, x6 = 0;
 						return (chData) => {
 							for (let i = 0; i < chData.length; i++) {
-								const a = 1.0 - Math.random(), b = Math.random();
-								const white = Math.sqrt(-2 * Math.log(a)) * Math.sin(2 * Math.PI * b);
+								const white = gaussian();
 								x0 = 0.99886 * x0 + white * 0.0555179;
 								x1 = 0.99332 * x1 + white * 0.0750759;
 								x2 = 0.96900 * x2 + white * 0.1538520;
@@ -60,18 +71,13 @@ export class NoiseNode extends AudioWorkletNode {
 					};
 
 					const createBrownNoise = () => {
+						const gaussian = createGaussianNoise();
 						let brown = 0;
 						return (chData) => {
 							for (let i = 0; i < chData.length; i++) {
-								const a = 1.0 - Math.random(), b = Math.random();
-								const white = Math.sqrt(-2 * Math.log(a)) * Math.sin(2 * Math.PI * b);
-								brown += white;
-								if (brown < -10) {
-									brown = -10 - (brown + 10);
-								} else if (10 < brown) {
-									brown = 10 - (brown - 10);
-								}
-								chData[i] = brown * 0.08;
+								const white = gaussian();
+								brown = 0.99 * brown + white;
+								chData[i] = brown * 0.06;
 							}
 						};
 					};
