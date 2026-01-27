@@ -1,217 +1,131 @@
-var App = angular.module('App', []);
+import { NoiseNode } from './noise-node.js';
 
-navigator.getMedia = (
-	navigator.getUserMedia ||
-	navigator.webkitGetUserMedia ||
-	navigator.mozGetUserMedia ||
-	navigator.msGetUserMedia
-);
+const App = angular.module('App', []);
 
-window.AudioContext = (
-	window.AudioContext ||
-	window.webkitAudioContext ||
-	window.mozAudioContext ||
-	window.msAudioContext
-);
+class SignalGenerator {
+	constructor() {
+		this.configs = [];
+		this.context = null;
+		this.nodes = [];
+		this.gain = null;
+		this.playing = false;
+	}
 
-(function() {
-	var requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
-	window.requestAnimationFrame = requestAnimationFrame;
-})();
-
-SignalGenerator = function () { this.init.apply(this, arguments) };
-SignalGenerator.prototype = {
-	init : function () {
-		console.log('init');
-		var self = this;
-		self.configs = [];
-	},
-
-	append : function (config) {
-		var self = this;
-		if (self._index(config) !== null) throw "already appended config";
-		self.configs.push(config);
-		if (self.nodes) {
-			var node = {};
-			self._set(node, config);
-			self.nodes.push(node);
+	append(config) {
+		if (this._index(config) !== null) throw new Error("already appended config");
+		this.configs.push(config);
+		if (this.context) {
+			const node = {};
+			this._set(node, config);
+			this.nodes.push(node);
 		}
-	},
+	}
 
-	update : function (config) {
-		var self = this;
-		if (self.nodes) {
-			var node = self.nodes[self._index(config)];
-			self._set(node, config);
+	update(config) {
+		const index = this._index(config);
+		if (index !== null && this.nodes[index]) {
+			this._set(this.nodes[index], config);
 		}
-	},
+	}
 
-	remove : function (config) {
-		var self = this;
-		var index = self._index(config);
-		self.configs.splice(index, 1);
-		if (self.nodes) {
-			var node = self.nodes[index];
-			node.osc.disconnect();
-			self.nodes.splice(index, 1);
+	remove(config) {
+		const index = this._index(config);
+		if (index === null) return;
+		this.configs.splice(index, 1);
+		if (this.nodes[index]) {
+			const node = this.nodes[index];
+			if (node.osc) node.osc.disconnect();
+			if (node.gain) node.gain.disconnect();
+			this.nodes.splice(index, 1);
 		}
-	},
+	}
 
-	start : function () {
-		var self = this;
-		if (!self.context) {
-			self.context = new AudioContext();
-			self.nodes = [];
-			self.gain = self.context.createGain();
-			self.gain.gain.value = 0;
-			self.gain.connect(self.context.destination);
-			for (let config of self.configs) {
+	async start() {
+		if (!this.context) {
+			this.context = new AudioContext();
+			await NoiseNode.addModule(this.context);
+			this.nodes = [];
+			this.gain = this.context.createGain();
+			this.gain.gain.value = 0;
+			this.gain.connect(this.context.destination);
+			for (const config of this.configs) {
 				const node = {};
-				self._set(node, config);
-				self.nodes.push(node);
+				this._set(node, config);
+				this.nodes.push(node);
 			}
 		}
 
+		if (this.context.state === 'suspended') {
+			await this.context.resume();
+		}
 
-		self.playing = true;
-		self.gain.gain.value = 1;
-	},
+		this.playing = true;
+		this.gain.gain.setTargetAtTime(1, this.context.currentTime, 0.01);
+	}
 
-	stop : function () {
-		var self = this;
-		self.playing = false;
-		self.gain.gain.value = 0;
-	},
+	stop() {
+		this.playing = false;
+		if (this.gain && this.context) {
+			this.gain.gain.setTargetAtTime(0, this.context.currentTime, 0.01);
+		}
+	}
 
-	_index : function (config) {
-		var self = this;
-		for (var i = 0, it; (it = self.configs[i]); i++) {
-			if (self.configs[i] === config) {
+	_index(config) {
+		for (let i = 0; i < this.configs.length; i++) {
+			if (this.configs[i] === config) {
 				return i;
 			}
 		}
 		return null;
-	},
+	}
 
-	_set : function (node, config) {
-		var self = this;
-		if (!node.gain) node.gain = self.context.createGain();
+	_set(node, config) {
+		if (!this.context) return;
 
-		if (config.type == 'whitenoise') {
-			node.osc.disconnect();
-			var variance = 1;
-			var average = 0;
-			node.osc = self.context.createScriptProcessor(4096, 1, 1);
-			node.osc.onaudioprocess = function (e) {
-				var inputData = e.inputBuffer.getChannelData(0);
-				var outputData = e.outputBuffer.getChannelData(0);
-				for (var i = 0, len = inputData.length; i < len; i += 2) {
-					// Whitenoise by Box-Muller transform
-					var a = Math.random(), b = Math.random();
-					var x = Math.sqrt(-2 * Math.log(a)) * Math.sin(2 * Math.PI * b) * variance + average;
-					var y = Math.sqrt(-2 * Math.log(a)) * Math.cos(2 * Math.PI * b) * variance + average;
-					outputData[i]   = x;
-					outputData[i+1] = y;
-				}
-			};
+		if (!node.gain) {
+			node.gain = this.context.createGain();
+			node.gain.connect(this.gain);
+		}
 
-			node.osc.connect(node.gain);
-		} else
-		if (config.type == "pinknoise") {
-			var x0, x1, x2, x3, x4, x5, x6;
-			x0 = x1 = x2 = x3 = x4 = x5 = x6 = 0.0;
-			var pinkify = function (white) {
-				x0 = 0.99886 * x0 + white * 0.0555179;
-				x1 = 0.99332 * x1 + white * 0.0750759;
-				x2 = 0.96900 * x2 + white * 0.1538520;
-				x3 = 0.86650 * x3 + white * 0.3104856;
-				x4 = 0.55000 * x4 + white * 0.5329522;
-				x5 = -0.7616 * x5 - white * 0.0168980;
-				var pink = x0 + x1 + x2 + x3 + x4 + x5 + x6 + white * 0.5362;
-				x6 = white * 0.115926;
-				return pink;
-			};
+		const isNoise = config.type.match(/noise/);
 
-			node.osc.disconnect();
-			node.osc = self.context.createScriptProcessor(1024, 1, 1);
-			node.osc.onaudioprocess = function (e) {
-				// http://www.firstpr.com.au/dsp/pink-noise/
-				var inputData = e.inputBuffer.getChannelData(0);
-				var outputData = e.outputBuffer.getChannelData(0);
-
-				for (var i = 0, len = inputData.length; i < len; i += 2) {
-					// Whitenoise by Box-Muller transform
-					var a = Math.random(), b = Math.random();
-					var x = Math.sqrt(-2 * Math.log(a)) * Math.sin(2 * Math.PI * b);
-					var y = Math.sqrt(-2 * Math.log(a)) * Math.cos(2 * Math.PI * b);
-					outputData[i]   = pinkify(x);
-					outputData[i+1] = pinkify(y);
-				}
-			};
-
-			node.osc.connect(node.gain);
-		} else
-		if (config.type == 'browniannoise') {
-			var brown = 0.0;
-			var brownify = function (white) {
-				brown += white;
-				if (brown < -10) {
-					brown = -10 - (brown + 10);
-				} else
-				if (10 < brown) {
-					brown = 10 - (brown - 10);
-				}
-				return brown / 5;
-			};
-
-			node.osc.disconnect();
-			node.osc = self.context.createScriptProcessor(1024, 1, 1);
-			node.osc.onaudioprocess = function (e) {
-				var inputData = e.inputBuffer.getChannelData(0);
-				var outputData = e.outputBuffer.getChannelData(0);
-				for (var i = 0, len = inputData.length; i < len; i += 2) {
-					// Whitenoise by Box-Muller transform
-					var a = Math.random(), b = Math.random();
-					var x = Math.sqrt(-2 * Math.log(a)) * Math.sin(2 * Math.PI * b);
-					var y = Math.sqrt(-2 * Math.log(a)) * Math.cos(2 * Math.PI * b);
-					// Integrate
-					outputData[i]   = brownify(x);
-					outputData[i+1] = brownify(y);
-				}
-			};
-
-			node.osc.connect(node.gain);
+		if (isNoise) {
+			if (!(node.osc instanceof NoiseNode) || node.osc.type !== config.type) {
+				if (node.osc) node.osc.disconnect();
+				node.osc = new NoiseNode(this.context, { type: config.type });
+				node.osc.connect(node.gain);
+				node.osc.type = config.type;
+			}
 		} else {
 			if (!(node.osc instanceof OscillatorNode)) {
 				if (node.osc) node.osc.disconnect();
-				node.osc = self.context.createOscillator();
+				node.osc = this.context.createOscillator();
 				node.osc.start(0);
+				node.osc.connect(node.gain);
 			}
-			node.osc.connect(node.gain);
 			node.osc.type = config.type;
-			node.osc.frequency.value = config.frequency;
+			node.osc.frequency.setTargetAtTime(config.frequency, this.context.currentTime, 0.01);
 		}
-		node.gain.gain.value = config.gain;
-		node.gain.connect(self.gain);
+
+		node.gain.gain.setTargetAtTime(config.gain, this.context.currentTime, 0.01);
 	}
-};
+}
 
 App.filter('oscillatorType', function () {
 	return function (v) {
+		if (!v) return '';
 		return v.substring(0, 1).toUpperCase() + v.substring(1);
 	};
 });
 
 App.directive('fft', function () {
 	return {
-		scope : {
-			"fft" : "="
+		scope: {
+			"fft": "="
 		},
-		controller : function ($scope, $element, $attrs) {
-			console.log('controller');
+		controller: function ($scope, $element) {
 			$scope.fft = {
-				start : function (context, node) {
-					var self = this;
+				start: function (context, node) {
 					this.context = context;
 					this.node = node;
 					this.canvas = $element.find('canvas')[0];
@@ -219,73 +133,77 @@ App.directive('fft', function () {
 					this.analyser.fftSize = 2048;
 					this.node.connect(this.analyser);
 
-					var ctx    = this.canvas.getContext('2d');
-					var analyser = this.analyser;
-					var data = new Float32Array(analyser.frequencyBinCount);
-					var range = analyser.minDecibels - analyser.maxDecibels; // -70
-					this.draw = function () {
+					const ctx = this.canvas.getContext('2d');
+					const analyser = this.analyser;
+					const data = new Float32Array(analyser.frequencyBinCount);
+					const range = analyser.minDecibels - analyser.maxDecibels;
+
+					const draw = () => {
+						if (!this.running) return;
 						analyser.getFloatFrequencyData(data);
-						ctx.clearRect(0, 0, canvas.width, canvas.height);
+						ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 						ctx.fillStyle = "#000000";
-						for (var i = 0, len = data.length; i < len; i++) {
-							var x = (data[i] - analyser.maxDecibels) / range;
-							ctx.fillRect(i, 0, 1, canvas.height * x);
+						for (let i = 0, len = data.length; i < len; i++) {
+							const x = (data[i] - analyser.maxDecibels) / range;
+							ctx.fillRect(i, 0, 1, this.canvas.height * x);
 						}
+						requestAnimationFrame(draw);
 					};
-					if (self.running) return;
-					self.running = true;
-					requestAnimationFrame(function () {
-						if (!self.running) return;
-						self.draw();
-						requestAnimationFrame(arguments.callee);
-					});
+
+					if (this.running) return;
+					this.running = true;
+					requestAnimationFrame(draw);
 				},
 
-				stop : function () {
+				stop: function () {
 					this.running = false;
+					if (this.node && this.analyser) {
+						this.node.disconnect(this.analyser);
+					}
 				}
 			};
 		},
-		template : '<canvas id="canvas" width="1024" height="200" style="max-width: 100%; border: 1px solid #000;"></canvas>'
+		template: '<canvas id="canvas" width="1024" height="200" style="max-width: 100%; border: 1px solid #000;"></canvas>'
 	};
 });
 
 App.controller('MainCtrl', function ($scope, $timeout) {
-	var signalGenerator = new SignalGenerator();
-	$scope.oscillators = [ ];
+	const signalGenerator = new SignalGenerator();
+	$scope.oscillators = [];
 	$scope.playing = false;
-	console.log('Main', $scope.$id);
 
-	$scope.$watch('oscillators', function (newValue, oldValue) {
-		console.log(newValue);
-		for (var i = 0, it; (it = newValue[i]); i++) {
+	$scope.$watch('oscillators', function (newValue) {
+		for (let i = 0; i < newValue.length; i++) {
 			signalGenerator.update(newValue[i]);
 		}
 	}, true);
 
 	$scope.append = function () {
-		var config = {
-			type : "sine",
-			frequency : 440,
-			gain : 0.1
+		const config = {
+			type: "sine",
+			frequency: 440,
+			gain: 0.1
 		};
 		$scope.oscillators.push(config);
 		signalGenerator.append(config);
 	};
 
 	$scope.remove = function (osc) {
-		for (var i = 0, it; (it = $scope.oscillators[i]); i++) {
-			if (it === osc) {
-				$scope.oscillators.splice(i, 1);
-				signalGenerator.remove(osc);
-				break;
-			}
+		const index = $scope.oscillators.indexOf(osc);
+		if (index !== -1) {
+			$scope.oscillators.splice(index, 1);
+			signalGenerator.remove(osc);
 		}
 	};
 
-	$scope.start = function () {
-		signalGenerator.start();
-		$scope.playing = true;
+	$scope.start = async function () {
+		await signalGenerator.start();
+		$scope.$apply(() => {
+			$scope.playing = true;
+			if ($scope.fftEnabled) {
+				$scope.fft.start(signalGenerator.context, signalGenerator.gain);
+			}
+		});
 	};
 
 	$scope.stop = function () {
@@ -293,16 +211,19 @@ App.controller('MainCtrl', function ($scope, $timeout) {
 		$scope.playing = false;
 	};
 
-	setTimeout(function () {
+	$timeout(() => {
 		$scope.$watch('fftEnabled', function (newValue) {
 			if (newValue) {
-				$scope.fft.start(signalGenerator.context, signalGenerator.gain);
+				if (signalGenerator.context) {
+					$scope.fft.start(signalGenerator.context, signalGenerator.gain);
+				}
 			} else {
-				$scope.fft.stop();
+				if ($scope.fft) {
+					$scope.fft.stop();
+				}
 			}
 		});
-	}, 10);
-
+	}, 100);
 
 	$scope.append();
 });
