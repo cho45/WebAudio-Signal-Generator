@@ -24,14 +24,19 @@
 
 		header {
 			background-color: #fff;
-			padding: 1rem 2rem;
 			box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
 			position: sticky;
 			top: 0;
 			z-index: 100;
+		}
+
+		.header-inner {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			padding: 0.5rem 1rem;
+			margin: 0 auto;
+			max-width: 800px;
 		}
 
 		h1 {
@@ -62,6 +67,11 @@
 
 		.btn:active {
 			opacity: 0.8;
+			transform: translateY(1px);
+		}
+
+		.btn:hover {
+			filter: brightness(1.1);
 		}
 
 		.btn-primary { background-color: var(--primary-color); color: white; }
@@ -163,13 +173,15 @@
 <body>
 	<div id="app" v-cloak>
 		<header>
-			<h1>Signal Generator</h1>
-			<div class="controls">
-				<label>
-					<input type="checkbox" v-model="fftEnabled"> FFT
-				</label>
-				<button v-if="!playing" class="btn btn-primary" @click="start">Start</button>
-				<button v-else class="btn btn-danger" @click="stop">Stop</button>
+			<div class="header-inner">
+				<h1>Signal Generator</h1>
+				<div class="controls">
+					<label>
+						<input type="checkbox" v-model="fftEnabled"> FFT
+					</label>
+					<button v-if="!playing" class="btn btn-primary" @click="start">Start</button>
+					<button v-else class="btn btn-danger" @click="stop">Stop</button>
+				</div>
 			</div>
 		</header>
 
@@ -180,7 +192,7 @@
 
 			<div class="card-header">
 				<h2>Oscillators</h2>
-				<button class="btn btn-secondary" @click="append">Add Oscillator</button>
+				<button class="btn btn-primary" @click="append">+ Add Oscillator</button>
 			</div>
 
 			<div class="oscillator-list">

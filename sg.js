@@ -180,7 +180,7 @@ const app = createApp({
 		const signalGenerator = new SignalGenerator();
 		const oscillators = reactive([]);
 		const playing = ref(false);
-		const fftEnabled = ref(false);
+		const fftEnabled = ref(true);
 		const context = ref(null);
 		const gainNode = ref(null);
 
